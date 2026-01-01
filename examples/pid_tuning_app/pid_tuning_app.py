@@ -211,7 +211,7 @@ class PIDTuningApp:
     def __init__(self, root):
         self.root = root
         self.root.title("PID Tuning Application - Version 0.0.0 (Beta)")
-        self.root.geometry("1400x1000")
+        self.root.geometry("1400x1200")
         
         # Configure dark theme
         self.setup_dark_theme()
@@ -500,6 +500,11 @@ class PIDTuningApp:
                                    text=str(self.loop_period_var.get()))
         period_combo.grid(row=1, column=3, sticky=tk.W, padx=(5, 10), pady=(5, 0))
         ttk.Label(params_frame, text="ms", font=('Calibri', 8)).grid(row=1, column=4, sticky=tk.W, pady=(5, 0))
+        
+        # Update display when loop period changes
+        def update_loop_period_display(*args):
+            self.loop_period_display.set(f"{self.loop_period_var.get()} ms")
+        self.loop_period_var.trace_add('write', update_loop_period_display)
         row += 1
         
         # Anti-windup settings (now part of PID Configuration)
