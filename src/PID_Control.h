@@ -24,6 +24,16 @@ class PID_Control {
         float getDerivative();
         float getError();
         
+        // Safety features
+        void setStaleDataDetection(float minRateOfChange, unsigned long maxTimeMs);
+        void enableStaleDataDetection();
+        void disableStaleDataDetection();
+        void setSafeValueLimits(float minValue, float maxValue);
+        void enableSafeValueLimits();
+        void disableSafeValueLimits();
+        bool isInErrorState();
+        void clearErrorState();
+        
         // Additional helper methods
         void setOutputLimits(float min, float max);
         void setIntegralLimits(float min, float max);
@@ -51,6 +61,19 @@ class PID_Control {
         float _P_term;
         float _I_term;
         float _D_term;
+        
+        // Safety feature variables
+        bool _staleDataEnabled;
+        float _minRateOfChange;
+        unsigned long _maxStaleTimeMs;
+        unsigned long _lastGoodTime;
+        float _lastGoodValue;
+        
+        bool _safeValueEnabled;
+        float _safeMinValue;
+        float _safeMaxValue;
+        
+        bool _errorState;
         
         // Configuration
         float _output_min;

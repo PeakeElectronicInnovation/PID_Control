@@ -22,6 +22,19 @@ PID_Control::PID_Control(int out_pin, bool polarity) {
     _I_term = 0.0;
     _D_term = 0.0;
     
+    // Initialize safety features
+    _staleDataEnabled = false;
+    _minRateOfChange = 0.0;
+    _maxStaleTimeMs = 5000;  // Default 5 seconds
+    _lastGoodTime = 0;
+    _lastGoodValue = 0.0;
+    
+    _safeValueEnabled = false;
+    _safeMinValue = 0.0;
+    _safeMaxValue = 100.0;
+    
+    _errorState = false;
+    
     // Configuration
     _output_min = 0.0;
     _output_max = 255.0;
@@ -62,6 +75,60 @@ void PID_Control::update(float input) {
         _I_term = 0.0;
         _D_term = 0.0;
         _last_error = 0.0;
+        if (_out_pin >= 0) {
+            analogWrite(_out_pin, 0);
+        }
+        return;
+    }
+    
+    // Safety checks
+    bool errorDetected = false;
+    
+    // Check for NaN
+    if (isnan(input)) {
+        errorDetected = true;
+    }
+    
+    // Check safe value limits if enabled
+    if (_safeValueEnabled && !errorDetected) {
+        if (input < _safeMinValue || input > _safeMaxValue) {
+            errorDetected = true;
+        }
+    }
+    
+    // Check for stale data if enabled (only when away from setpoint)
+    if (_staleDataEnabled && !errorDetected) {
+        float error = _setpoint - input;
+        if (abs(error) > 0.1) {  // Only check when not at setpoint
+            if (_lastGoodTime == 0) {
+                _lastGoodTime = millis();
+                _lastGoodValue = input;
+            } else {
+                unsigned long timeDiff = millis() - _lastGoodTime;
+                float rateOfChange = abs(input - _lastGoodValue) / (timeDiff / 1000.0);
+                
+                if (rateOfChange < _minRateOfChange && timeDiff > _maxStaleTimeMs) {
+                    errorDetected = true;
+                } else if (rateOfChange >= _minRateOfChange) {
+                    _lastGoodTime = millis();
+                    _lastGoodValue = input;
+                }
+            }
+        } else {
+            // At setpoint, reset stale data timer
+            _lastGoodTime = millis();
+            _lastGoodValue = input;
+        }
+    }
+    
+    // Handle error state
+    if (errorDetected) {
+        _errorState = true;
+        disable();  // Disable controller on error
+        _output = 0.0;
+        _P_term = 0.0;
+        _I_term = 0.0;
+        _D_term = 0.0;
         if (_out_pin >= 0) {
             analogWrite(_out_pin, 0);
         }
@@ -130,6 +197,8 @@ void PID_Control::update(float input) {
 
 void PID_Control::enable() {
     _enabled = true;
+    _errorState = false;  // Clear error state when enabling
+    _lastGoodTime = 0;    // Reset stale data timer
     _last_time = millis();
 }
 
@@ -168,6 +237,44 @@ float PID_Control::getKd() {
 
 float PID_Control::getSetpoint() {
     return _setpoint;
+}
+
+// Safety feature implementations
+void PID_Control::setStaleDataDetection(float minRateOfChange, unsigned long maxTimeMs) {
+    _minRateOfChange = minRateOfChange;
+    _maxStaleTimeMs = maxTimeMs;
+    _lastGoodTime = 0;  // Reset timer
+}
+
+void PID_Control::enableStaleDataDetection() {
+    _staleDataEnabled = true;
+    _lastGoodTime = 0;  // Reset timer
+}
+
+void PID_Control::disableStaleDataDetection() {
+    _staleDataEnabled = false;
+}
+
+void PID_Control::setSafeValueLimits(float minValue, float maxValue) {
+    _safeMinValue = minValue;
+    _safeMaxValue = maxValue;
+}
+
+void PID_Control::enableSafeValueLimits() {
+    _safeValueEnabled = true;
+}
+
+void PID_Control::disableSafeValueLimits() {
+    _safeValueEnabled = false;
+}
+
+bool PID_Control::isInErrorState() {
+    return _errorState;
+}
+
+void PID_Control::clearErrorState() {
+    _errorState = false;
+    _lastGoodTime = 0;  // Reset stale data timer
 }
 
 float PID_Control::getOutput() {
