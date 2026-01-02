@@ -211,7 +211,7 @@ float PID_Tune::getDerivative() {
 // Private methods
 
 void PID_Tune::processCommand() {
-    StaticJsonDocument<400> doc;
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, _buffer);
     
     if (error) {
@@ -227,33 +227,33 @@ void PID_Tune::processCommand() {
         float ki = _pid.getKi();
         float kd = _pid.getKd();
         
-        if (doc.containsKey("kp")) kp = doc["kp"];
-        if (doc.containsKey("ki")) ki = doc["ki"];
-        if (doc.containsKey("kd")) kd = doc["kd"];
+        if (doc["kp"].is<float>()) kp = doc["kp"];
+        if (doc["ki"].is<float>()) ki = doc["ki"];
+        if (doc["kd"].is<float>()) kd = doc["kd"];
         
         _pid.setPID(kp, ki, kd);
         
-        if (doc.containsKey("loop_period")) setLoopPeriod(doc["loop_period"]);
+        if (doc["loop_period"].is<unsigned long>()) setLoopPeriod(doc["loop_period"]);
         
         // Handle anti-windup settings
-        if (doc.containsKey("output_limit")) {
+        if (doc["output_limit"].is<bool>()) {
             if (doc["output_limit"]) {
-                if (doc.containsKey("output_min") && doc.containsKey("output_max")) {
+                if (doc["output_min"].is<float>() && doc["output_max"].is<float>()) {
                     setOutputLimits(doc["output_min"], doc["output_max"]);
                 }
             }
         }
         
-        if (doc.containsKey("integral_limit")) {
+        if (doc["integral_limit"].is<bool>()) {
             if (doc["integral_limit"]) {
-                if (doc.containsKey("integral_min") && doc.containsKey("integral_max")) {
+                if (doc["integral_min"].is<float>() && doc["integral_max"].is<float>()) {
                     setIntegralLimits(doc["integral_min"], doc["integral_max"]);
                 }
             }
         }
     }
     else if (cmd == "set_sp") {
-        if (doc.containsKey("value")) {
+        if (doc["value"].is<float>()) {
             setSetpoint(doc["value"]);
         }
     }
@@ -269,7 +269,7 @@ void PID_Tune::processCommand() {
         sendStatus();
     }
     else if (cmd == "step_test") {
-        if (doc.containsKey("amplitude")) {
+        if (doc["amplitude"].is<float>()) {
             startStepTest(doc["amplitude"]);
         }
     }
